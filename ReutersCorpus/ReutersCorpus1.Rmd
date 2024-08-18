@@ -1,0 +1,252 @@
+---
+title: "ReutersCorpus1"
+author: "Tara Mary Joseph"
+date: "2024-08-18"
+output: html_document
+---
+
+## Reuters Corpus
+
+Classifying authors based on their publications's content
+
+```{r setup, include=FALSE}
+# Importing necessary libraries
+library(tm)
+library(quanteda)
+library(textstem)
+library(textdata)
+library(tidyverse)
+library(cluster)
+library(factoextra)  # For PCA and visualization
+library(syuzhet)
+
+```
+
+set the working directory to where the training data set is located locally
+
+```{r}
+# List all text files in the directory and its subdirectories
+text_files <- list.files(pattern = "\\.txt$", recursive = TRUE, full.names = TRUE)
+
+```
+
+
+```{r}
+# Load the content of each text file into a list, storing the content and filename
+text_data <- lapply(text_files, function(file) {
+  list(content = readLines(file), filename = file)
+})
+
+```
+
+```{r}
+# Extract author names from the filenames using a regular expression
+author_names <- sapply(text_data, function(x) gsub(".*/(.*?)/.*", "\\1", x$filename))
+```
+
+```{r}
+# Convert the result to a vector (optional)
+author_names <- as.vector(author_names)
+```
+
+```{r}
+# Display the first few lines of the first file if there are any files loaded
+if (length(text_data) > 0) {
+  print(head(text_data[[1]]))
+} else {
+  print("No text files found.")
+}
+
+```
+
+```{r}
+# Create a text corpus from the loaded documents
+documents_raw <- Corpus(VectorSource(text_data))
+```
+
+```{r}
+# Preprocess the text data
+my_documents <- documents_raw
+my_documents <- tm_map(my_documents, content_transformer(tolower))  
+#Convert all text to lowercase
+my_documents <- tm_map(my_documents, content_transformer(removeNumbers))  
+# Remove numbers from the text
+my_documents <- tm_map(my_documents, content_transformer(removePunctuation))  
+# Remove punctuation (optional)
+my_documents <- tm_map(my_documents, content_transformer(stripWhitespace))  
+# Remove extra whitespace
+```
+```{r}
+# Remove common English stopwords
+my_documents <- tm_map(my_documents, content_transformer(removeWords), stopwords("en"))
+```
+```{r}
+# Create a Document-Term Matrix (DTM) from the processed documents
+DTM_reuters <- DocumentTermMatrix(my_documents)
+
+# Check the class of the DTM to confirm it's a special sparse matrix format
+class(DTM_reuters)
+
+# Inspect a small portion of the DTM (first 10 documents and 20 terms)
+inspect(DTM_reuters[1:10, 1:20])
+
+```
+
+```{r}
+# Find words that appear in more than 500 documents
+findFreqTerms(DTM_reuters, 500)
+```
+
+```{r}
+# Remove sparse terms from the DTM, keeping terms that appear in at least 5% of the documents
+DTM_reuters <- removeSparseTerms(DTM_reuters, 0.95)
+```
+
+```{r}
+# Calculate Term Frequency-Inverse Document Frequency (TF-IDF) weights
+tfidf_reuters <- weightTfIdf(DTM_reuters)
+
+# Inspect a specific document in the TF-IDF weighted matrix
+inspect(tfidf_reuters[2500, ])
+
+```
+```{r}
+# Convert the TF-IDF matrix to a standard matrix format for further analysis
+dtm_matrix <- as.matrix(tfidf_reuters)
+```
+
+```{r}
+# Remove columns with zero sums (terms that do not appear in any document)
+scrub_cols <- which(colSums(dtm_matrix) == 0)
+dtm_matrix <- dtm_matrix[, -scrub_cols]
+```
+
+```{r}
+# Apply Principal Component Analysis (PCA) to reduce dimensionality of the data
+pca_result <- prcomp(dtm_matrix, scale. = TRUE)
+
+# Plot the variance explained by each principal component to determine how many to keep
+plot(pca_result)
+
+```
+
+```{r}
+# Inspect the top 25 terms contributing to the first and second principal components
+pca_result$rotation[order(abs(pca_result$rotation[, 1]), decreasing = TRUE), 1][1:25]
+pca_result$rotation[order(abs(pca_result$rotation[, 2]), decreasing = TRUE), 2][1:25]
+
+# Select the first 10 principal components for further analysis
+pca_data <- pca_result$x[, 1:10]
+```
+
+```{r}
+# Prepare a data frame with the first two principal components for K-Means clustering
+pca_df <- data.frame(PC1 = pca_result$x[, 1], PC2 = pca_result$x[, 2])
+
+# Set the number of clusters for K-Means clustering
+num_clusters <- 3
+
+# Perform K-Means clustering on the PCA data
+kmeans_result <- kmeans(pca_df, centers = num_clusters, nstart = 25)
+
+# Add the cluster assignments to the PCA data frame
+pca_df$cluster <- as.factor(kmeans_result$cluster)
+
+```
+
+
+```{r}
+# Load the ggplot2 library for visualization
+library(ggplot2)
+
+# Plot the PCA components and color the points by their cluster assignments
+ggplot(pca_df, aes(x = PC1, y = PC2, color = cluster)) +
+  geom_point(alpha = 0.6, size = 3) +  # Plot points with transparency and size
+  labs(title = "K-Means Clustering on PCA Components",
+       x = "Principal Component 1",
+       y = "Principal Component 2",
+       color = "Cluster") +
+  theme_minimal()
+```
+
+Based on the K-Means clustering on the first two principal components, the data points have been grouped into three distinct clusters. The clusters appear to be well-separated in the PCA space.This suggests that the authors may have distinct writing styles or content characteristics that are captured by the clustering algorithm.
+
+```{r}
+# Add the author names to the PCA data frame to associate each document with its author
+pca_df$author <- author_names
+```
+
+```{r}
+# Loop through each unique cluster and print the authors associated with that cluster
+for (i in unique(pca_df$cluster)) {
+  cat("Cluster", i, ":\n")  # Print the cluster number
+  
+  # Find and list unique authors in the current cluster
+  unique_authors_in_cluster <- unique(pca_df$author[pca_df$cluster == i])
+  
+  # Print the unique authors for this cluster, separated by commas
+  cat(unique_authors_in_cluster, sep = ", ")
+  
+  # Add a newline for better readability between clusters
+  cat("\n\n")
+}
+```
+The output shows that several authors appear in more than one cluster. For example, authors like AaronPressman, AlanCrosby, and BernardHickey are present in all three clusters. This suggests that the clustering algorithm did not distinctly separate all authors based on their writing styles or content, leading to overlapping membership.
+
+```{r}
+# let us try to find the optimal number of clusters through the elbow plot method
+
+set.seed(123)  # For reproducibility
+wss <- sapply(1:10, function(k){
+  kmeans(pca_df[, c("PC1", "PC2")], centers = k, nstart = 25)$tot.withinss
+})
+
+# Plot the Elbow curve
+plot(1:10, wss, type = "b", pch = 19, frame = FALSE,
+     xlab = "Number of clusters K",
+     ylab = "Total within-clusters sum of squares",
+     main = "Elbow Method for Optimal Clusters")
+```
+```{r}
+# Set the optimal number of clusters based on the Elbow plot
+optimal_clusters <- 6
+
+# Perform k-means clustering
+kmeans_result_optimal <- kmeans(pca_df[, c("PC1", "PC2")], centers = optimal_clusters, nstart = 25)
+
+# Add cluster assignments to the PCA data frame
+pca_df$cluster_optimal <- as.factor(kmeans_result_optimal$cluster)
+
+# Plot the PCA components with the optimal cluster assignments
+library(ggplot2)
+
+ggplot(pca_df, aes(x = PC1, y = PC2, color = cluster_optimal)) +
+  geom_point(alpha = 0.6, size = 3) +
+  labs(title = "K-Means Clustering on PCA Components (Optimal Clusters)",
+       x = "Principal Component 1",
+       y = "Principal Component 2",
+       color = "Cluster") +
+  theme_minimal()
+
+
+```
+
+
+
+```{r}
+# Print the unique authors in each cluster
+for (i in unique(pca_df$cluster_optimal)) {
+  cat("Cluster", i, ":\n")
+  unique_authors_in_cluster <- unique(pca_df$author[pca_df$cluster_optimal == i])
+  cat(unique_authors_in_cluster, sep = ", ")
+  cat("\n\n")
+}
+```
+The clustering reveals a significant amount of shared writing characteristics among many authors, suggesting that a large portion of the Reuters C50 text corpus authors may have similar writing styles or content focuses.
+
+Given these observations, we plan to incorporate sentiment analysis into our approach. By analyzing the emotional tone or sentiment expressed in the texts, we hope to uncover additional layers of differentiation among the authors.
+
+
+
+
+

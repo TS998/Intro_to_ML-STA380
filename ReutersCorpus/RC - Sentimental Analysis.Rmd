@@ -1,0 +1,127 @@
+---
+title: "Reuters Corpus - Sentimental Analysis"
+author: "Anjali, Theresa, & Tara"
+date: "2024-08-18"
+output: html_document
+---
+
+```{r}
+# Load necessary libraries
+library(tm)
+library(tidytext)
+library(dplyr)
+library(syuzhet)
+library(ggplot2)
+
+```
+
+
+```{r}
+# Step 1: Load and preprocess the data
+# Assuming text_data contains the file paths
+
+get_text <- function(filepath) {
+  text <- readLines(filepath, warn = FALSE)
+  text <- paste(text, collapse = " ")
+  return(text)
+}
+
+# Load text data
+text_data <- lapply(text_data, function(x) {
+  data.frame(author = gsub(".*/(.*?)/.*", "\\1", x$filename),
+             text = get_text(x$filename),
+             stringsAsFactors = FALSE)
+})
+
+text_df <- do.call(rbind, text_data)
+
+# Preprocessing
+text_df$text <- tolower(text_df$text)
+text_df$text <- removePunctuation(text_df$text)
+text_df$text <- removeNumbers(text_df$text)
+text_df$text <- stripWhitespace(text_df$text)
+text_df$text <- removeWords(text_df$text, stopwords("en"))
+
+# Step 2: Apply sentiment analysis
+text_df$sentiment <- get_nrc_sentiment(text_df$text)
+
+# Aggregate sentiment by author
+author_sentiment <- text_df %>%
+  group_by(author) %>%
+  summarise_all(mean)
+
+
+# Assuming text_df$sentiment has the results from get_nrc_sentiment
+# Summing positive and negative sentiment scores
+text_df$positive <- rowSums(text_df$sentiment[, c("joy", "trust", "surprise", "anticipation")])
+text_df$negative <- rowSums(text_df$sentiment[, c("anger", "fear", "sadness", "disgust")])
+
+# Aggregate sentiment by author
+author_sentiment <- text_df %>%
+  group_by(author) %>%
+  summarise(positive = mean(positive),
+            negative = mean(negative))
+
+# Calculate net sentiment
+author_sentiment$net_sentiment <- author_sentiment$positive - author_sentiment$negative
+
+# Visualize average net sentiment by author
+ggplot(author_sentiment, aes(x = author, y = net_sentiment)) +
+  geom_bar(stat = "identity") +
+  coord_flip() +
+  labs(title = "Net Sentiment by Author",
+       x = "Author",
+       y = "Net Sentiment (Positive - Negative)")
+
+library(ggplot2)
+library(dplyr)
+
+# Sort authors by net sentiment
+author_sentiment <- author_sentiment %>%
+  arrange(net_sentiment)
+
+# Plot
+ggplot(author_sentiment, aes(x = reorder(author, net_sentiment), y = net_sentiment, fill = net_sentiment)) +
+  geom_bar(stat = "identity") +
+  coord_flip() +
+  scale_fill_gradient2(low = "red", high = "green", mid = "yellow", midpoint = 0) +
+  geom_text(aes(label = round(net_sentiment, 2)), hjust = ifelse(author_sentiment$net_sentiment > 0, -0.2, 1.2), size = 3) +
+  labs(title = "Average Net Sentiment by Author",
+       subtitle = "Net Sentiment = Positive Sentiment - Negative Sentiment",
+       x = "Author",
+       y = "Net Sentiment") +
+  theme_minimal() +
+  theme(plot.title = element_text(hjust = 0.5, size = 14, face = "bold"),
+        plot.subtitle = element_text(hjust = 0.5, size = 10),
+        axis.title.x = element_text(size = 12),
+        axis.title.y = element_text(size = 12),
+        axis.text.y = element_text(size = 8),
+        axis.text.x = element_text(size = 10),
+        legend.position = "none")
+
+# Average sentiment score
+sentiment_text <- data.frame(text_df$sentiment)
+average_sentiments <- sentiment_text %>%
+  summarise(across(everything(), mean, na.rm =TRUE))# Convert to long format for plotting
+average_sentiments_long <- average_sentiments %>%
+  pivot_longer(cols = everything(), names_to ="sentiment", values_to ="average_score")
+average_sentiments_long_trimmed <- head(average_sentiments_long,-2)
+
+# Plot
+ggplot(average_sentiments_long_trimmed, aes(x = reorder(sentiment, average_score), y = average_score, fill = sentiment))+
+  geom_bar(stat ="identity")+
+  coord_flip()+
+  scale_fill_viridis_d()+
+  labs(title ="Average Sentiment Scores Across All Text Data",
+       x ="Sentiment Category",
+       y ="Average Score")+
+  theme_minimal()+
+  theme(plot.title = element_text(hjust =0.5, size =14, face ="bold"),
+        axis.title.x = element_text(size =12),
+        axis.title.y = element_text(size =12),
+        axis.text.y = element_text(size =10),
+        axis.text.x = element_text(size =10),
+        legend.position ="none")
+
+```
+
