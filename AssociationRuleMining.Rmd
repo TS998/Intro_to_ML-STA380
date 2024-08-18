@@ -1,0 +1,112 @@
+---
+title: "AssociationRuleMining"
+author: "Tara Mary Joseph"
+date: "2024-08-18"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+# #Association Rule Mining
+
+```{r, echo=FALSE,include=TRUE ,warning=FALSE,error=FALSE, fig.align='center'}
+
+# Importing necessary packages
+#install.packages("arules")
+#install.packages("arulesViz")
+library(arules)
+library(arulesViz)
+```
+
+```{r, echo=FALSE,include=TRUE ,warning=FALSE,error=FALSE, fig.align='center'}
+
+#Loading the file
+transactions <- read.transactions("C:/Users/taram/Downloads/groceries.txt", format = 'basket', sep = ',')
+```
+
+```{r, echo=FALSE,include=TRUE ,warning=FALSE,error=FALSE, fig.align='center'}
+# Summary of transactions
+summary(transactions)
+```
+
+```{r}
+# Inspect the transactions object
+inspect(transactions[1:5])
+```
+
+```{r}
+# Association Rule Mining
+# Generate rules
+
+rules <- apriori(transactions, parameter = list(supp = 0.005, conf = 0.6))
+```
+
+By setting the minimum confidence to 60%, we are focusing on rules that are reasonably reliable.It is a compromise that allows for the discovery of significant rules without being too restrictive.
+
+```{r}
+# Inspect
+summary(rules)
+
+```
+
+We have gotten 22 rules with lift values ranging from 2.357 to 3.273;the high lift values denote strong associations. By choosing the above thresholds , we were able to filter out less significant patterns
+
+```{r}
+# visualizing support vs confidence
+plot(rules, measure = c("support", "lift"), shading = "confidence")
+
+```
+
+This scatter plot shows that most of the generated rules have low support but decent confidence, indicating they occur infrequently but are reliable when they do. The darker red points with higher lift suggest strong associations between items that, while not common, represent significant relationships.
+
+It also suggests that the strongest and most reliable rules (in terms of lift and confidence) are those with moderate support and high lift. These rules are likely candidates for actionable insights, such as putting products together or targeted marketing efforts.
+
+```{r}
+# Sort rules by lift values
+rules_sorted_by_lift <- sort(rules, by = "lift", decreasing = TRUE)
+# Inspect the top rules sorted by lift
+inspect(rules_sorted_by_lift[1:5])
+```
+
+Despite their relatively low support (around 0.5% to 0.57%), these rules demonstrate that when these specific item combinations occur, they significantly increase the likelihood of purchasing related items, such as "other vegetables" or "whole milk."
+
+```{r}
+#Sort rules by confidence
+rules_sorted_by_confidence <- sort(rules, by = "confidence", decreasing = TRUE)
+
+# Inspect the rule with the highest confidence
+inspect(rules_sorted_by_confidence[1:5])
+```
+
+These rules highlight strong predictive relationships between various combinations of items and "whole milk," with confidence values ranging from 63.89% to 70%, but we have to keep in mind that support values are still low.
+
+```{r}
+# going through different subsets
+#inspect(subset(rules, subset=lift > 2.3))
+#inspect(subset(rules, subset=confidence > 0.65))
+inspect(subset(rules, subset=lift > 2.2 & confidence > 0.6))
+
+```
+
+```{r}
+# Association rule graph
+
+# Plotting a subset of the rules
+rules_subset <- subset(rules_sorted_by_lift, lift > 2.5 & confidence > 0.6)
+
+#Plot the subset of rules
+plot(rules_subset, method = "graph", control = list(type = "items"))
+
+```
+
+This plot highlights significant item associations within our dataset that are both strong and reliable. The chosen thresholds of lift \> 2.5 and confidence \> 0.6 help to focus on meaningful relationships between items.
+
+Root vegetables is central in the plot and is strongly associated with several other items, including "other vegetables," "citrus fruit," and "onions." This suggests that when customers purchase root vegetables, they are likely to also purchase these other items.
+
+We can observe that "Whole milk" is also connected to several items like "butter" and "yogurt," indicating these are common combinations in transactions.
+
+## Conclusion
+
+Strong Association : The analysis revealed several strong associations, particularly between fruits, vegetables, and dairy products, such as "root vegetables, tropical fruit, and yogurt" frequently co-occurring with "whole milk." These associations were identified based on high lift and confidence values, indicating important and reliable patterns in customer transactions.
+
+Low Support but High Confidence: Many of the discovered rules, while having relatively low support, exhibited high confidence and lift values. This suggests that while the patterns occur in a smaller fraction of transactions, they are pretty predictive when they do occur.
