@@ -30,10 +30,12 @@ Tara Mary Joseph - tj9763
 
 9.Image classification with neural networks
 
-Note: Exercises 1,2,3,4,5,6,9 are Python Jupyter notebooks with the appropriate file names
+Note: 
 
-      Exercise 7 is in a folder called ReutersCorpus that contains 3 files -> ReutersCorpus1(Rmd file) , RC - Sentiment Anaalysis (Rmd file) and Sentiment Analysis Insights (Word Doc)
+Exercises 1,2,3,4,5,6,9 are Python Jupyter notebooks with the appropriate file names
+
+Exercise 7 is in a folder called ReutersCorpus that contains 3 files -> ReutersCorpus1(Rmd file) , RC - Sentiment Anaalysis (Rmd file) and Sentiment Analysis Insights (Word Doc)
       
-      Exercise 8 is an Rmd file
+Exercise 8 is an Rmd file
 
                 
