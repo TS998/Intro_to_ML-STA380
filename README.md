@@ -1,6 +1,6 @@
-# STA380-ML
+# STA380-ML (Part 2)
 
-This repository contains all the exercises for STA380 Introduction to Machine Learning(Part 2)
+This repository is with regards to the Introduction to Machine Learning Course that we undertook during our Masters in Business Analytics program at The University of Texas at Austin, McCombs School of Business (2024).
 
 ## Group Members : 
 
